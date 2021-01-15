@@ -5,7 +5,6 @@ import psycopg2.extras
 from tqdm import tqdm
 from concurrent.futures import ThreadPoolExecutor
 
-
 class mysql2postgresql:
     def __init__(self):
         self.db = None
@@ -13,16 +12,17 @@ class mysql2postgresql:
         self.DB = None
         self.DBX = None
         self.tables:list = []
+        self.without:list = []
         self.database:str = None
         self.limit:int = 10000
         self.connect_mysql_kwargs:dict = {}
         self.connectpostgresql_kwargs:dict = {}
     
     def connect_mysql(self, **kwargs):
+        tqdm.write(f'connecting mysql host : {kwargs["host"]}')
         self.connect_mysql_kwargs = kwargs
         
     def connect_mysql_database(self):
-        # tqdm.write('connecting mysql server ...')
         self.db = mysql.connector.connect(**self.connect_mysql_kwargs)
         self.dbx = self.db.cursor()
         self.database = self.connect_mysql_kwargs['db']
@@ -36,10 +36,10 @@ class mysql2postgresql:
     ######################################################################################################
     
     def connect_postgresql(self, **kwargs):
+        tqdm.write(f'connecting postgresql host : {kwargs["host"]}')
         self.connectpostgresql_kwargs = kwargs
         
     def connect_postgresql_database(self):
-        # tqdm.write('connecting postgresql server ...')
         self.DB = psycopg2.connect(**self.connectpostgresql_kwargs)
         self.DB.autocommit = True
         self.DBX = self.DB.cursor() 
@@ -53,80 +53,18 @@ class mysql2postgresql:
     
     
     #-------------------------------------------------------------------#
-    def setval(self, table:str, serial_name:str):
-        '''
-            function setval to sequnce (seq) in PostgreSQL from Last ID
-            Setdefault value for sequence when insert new data
-        '''
-
-        psql:str = f"SELECT {serial_name} FROM {table} ORDER BY {serial_name} DESC LIMIT 1"
-        tqdm.write(psql)
-        self.DBX.execute(psql)
+    def run(self):
+        tqdm.write('Running in Python version')
         try:
-            id:int = self.DBX.fetchone()[0]
-            psql = f"SELECT SETVAL('{table[0:56]}_{serial_name}_seq', {id})"
-            self.DBX.execute(psql)
-            # self.DB.commit()
-        except:
-            pass
-                
-                
-    def insertinto(self, rows:list, table:str) -> None:
-        '''
-            Function insert data to PostgreSQL from function selecttoinsert 
-        '''
-        
-        psql:str = f"INSERT INTO {table} values %s"
-        tqdm.write(psql)
-        psycopg2.extras.execute_values(self.DBX, psql, rows)
-        # self.DB.commit()
-        
-    #-------------------------------- function select mysql ---------------------------------------#
-    def selecttoinsert(self, table:str) -> None:
-        '''
-            Function Select data from MySQL to function insertinto 
-        '''
-        
-        step:int = 0 
-        msql:str = f'SELECT COUNT(*) FROM {table}'
-        self.dbx.execute(msql)
-        count:int = self.dbx.fetchone()[0]
-        
-        if self.limit == 0:
-            self.limit = count 
-        
-        while count > 0:
-            msql = f'SELECT * from {table} LIMIT {self.limit} OFFSET {step};'
-            tqdm.write(msql)
-            self.dbx.execute(msql)
-            rows = self.dbx.fetchall()
-            
-            with ThreadPoolExecutor() as executor:
-                executor.submit(self.insertinto , rows, table)
-            
-            step = step + self.limit
-            count = count - self.limit
-            
+            self.main()
+        except Exception as e:
+            tqdm.write(str(e))
+        finally:
+            self.close_postgresql()
+            self.close_mysql()
 
-    def create_sequence(self, table:str, name:str):
-        '''
-            function create sequnce (seq) in PostgreSQL
-            create sequence by tablename_primarykey_seq
-        '''
-
-        psql:str = f"DROP SEQUENCE {table[0:56]}_{name}_seq CASCADE"
-        try:
-            self.DBX.execute(psql)
-        except:
-            pass
-        # self.DB.commit()
-            
-        psql = f"CREATE SEQUENCE {table[0:56]}_{name}_seq"
-        self.DBX.execute(psql)
-        # self.DB.commit()
-
-
-    def main(self) -> None:
+    # -------------------------------------------------------------#
+    def main(self):
        
         ''' show column from MySQL to create table in PostgreSQL '''
         
@@ -137,6 +75,8 @@ class mysql2postgresql:
             self.dbx.execute(mysql)
             self.tables:list = [table_name[0] for table_name in self.dbx.fetchall()]
             self.close_mysql()
+        
+        self.tables = [table for table in self.tables if table not in self.without]
         
         for table in tqdm(self.tables):
             
@@ -228,20 +168,82 @@ class mysql2postgresql:
                 
             self.close_mysql()
             self.close_postgresql()
-                
-        
-    def run(self):
-        tqdm.write('Running in Python version')
-        try:
-            self.main()
-        except Exception as e:
-            tqdm.write(str(e))
-        finally:
-            self.close_postgresql()
-            self.close_mysql()
             
+    # -------------------------------------------------------------- #
             
+    def create_sequence(self, table:str, name:str):
+        '''
+            function create sequnce (seq) in PostgreSQL
+            create sequence by tablename_primarykey_seq
+        '''
 
-if __name__ == '__main__':
-    print('hello')
+        psql:str = f"DROP SEQUENCE {table[0:56]}_{name}_seq CASCADE"
+        try:
+            self.DBX.execute(psql)
+        except:
+            pass
+        # self.DB.commit()
+            
+        psql = f"CREATE SEQUENCE {table[0:56]}_{name}_seq"
+        self.DBX.execute(psql)
+        # self.DB.commit()
+    
+    
+    def setval(self, table:str, serial_name:str):
+        '''
+            function setval to sequnce (seq) in PostgreSQL from Last ID
+            Setdefault value for sequence when insert new data
+        '''
+
+        psql:str = f"SELECT {serial_name} FROM {table} ORDER BY {serial_name} DESC LIMIT 1"
+        tqdm.write(psql)
+        self.DBX.execute(psql)
+        try:
+            id:int = self.DBX.fetchone()[0]
+            psql = f"SELECT SETVAL('{table[0:56]}_{serial_name}_seq', {id})"
+            self.DBX.execute(psql)
+            # self.DB.commit()
+        except:
+            pass
+        
+        
+    #-------------------------------- function select mysql ---------------------------------------#
+    def selecttoinsert(self, table:str):
+        '''
+            Function Select data from MySQL to function insertinto 
+        '''
+        
+        step:int = 0 
+        msql:str = f'SELECT COUNT(*) FROM {table}'
+        self.dbx.execute(msql)
+        count:int = self.dbx.fetchone()[0]
+        
+        if self.limit == 0:
+            self.limit = count 
+        
+        while count > 0:
+            msql = f'SELECT * from {table} LIMIT {self.limit} OFFSET {step};'
+            tqdm.write(msql)
+            self.dbx.execute(msql)
+            rows = self.dbx.fetchall()
+            
+            with ThreadPoolExecutor() as executor:
+                try:
+                    a = executor.submit(self.insertinto , rows, table)
+                finally:
+                    a.cancel()
+            
+            step = step + self.limit
+            count = count - self.limit
+            
+            
+    def insertinto(self, rows:list, table:str):
+        '''
+            Function insert data to PostgreSQL from function selecttoinsert 
+        '''
+        
+        psql:str = f"INSERT INTO {table} values %s"
+        tqdm.write(psql)
+        psycopg2.extras.execute_values(self.DBX, psql, rows)
+        # self.DB.commit()            
         

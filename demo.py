@@ -22,6 +22,8 @@ a.connect_postgresql(host='localhost',
 
 a.tables = [] # Table list name
 
+a.without = [] # Without table list
+
 a.run()
 
 current, peak = tracemalloc.get_traced_memory()

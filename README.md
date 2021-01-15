@@ -32,6 +32,9 @@ a.connect_postgresql(host='localhost',
 # manual table to transfer data  -> default all table in database
 a.tables = ['table1', 'table2', ...]
 
+# manual without table to transfer data  -> default empty
+a.without = ['table3', 'table4', ...]
+
 # manual limit to query data -> default 10000 
 # not limit -> a.limit = 0 
 a.limit = 10000

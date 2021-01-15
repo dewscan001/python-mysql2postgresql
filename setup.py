@@ -5,7 +5,7 @@ def readme():
 
 setup(name='mysql2postgresql',
     packages=find_packages(),
-    version='0.4.4dev1',
+    version='0.4.5',
     description='python-mysql2postgresql',
     author='DewBloodmetal',
     author_email='dewscan001@gmail.com',
