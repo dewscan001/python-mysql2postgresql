@@ -3,7 +3,7 @@ import mysql.connector
 import psycopg2
 import psycopg2.extras
 from tqdm import tqdm
-from concurrent.futures import ThreadPoolExecutor
+from concurrent.futures import ThreadPoolExecutor, as_completed
 
 class mysql2postgresql:
     def __init__(self):
@@ -83,6 +83,8 @@ class mysql2postgresql:
             self.connect_mysql_database()
             self.connect_postgresql_database()
             
+            tqdm.write('Table :'+table)
+            
             primary:list = []
             serial_names:str = ''
             primary_key:str = ''
@@ -107,6 +109,8 @@ class mysql2postgresql:
             for row in rows:
                 
                 name:str=row[0]; typed:str=row[1]; null:str=row[2]; key:str=row[3]; default:str=row[4]; extra:str=row[5]
+                
+                # reserve:tuple = ()
                 
                 '''
                     this change data type from MySQL to PostgreSQL
@@ -158,16 +162,17 @@ class mysql2postgresql:
             create_psql:str=psql.strip(',')+')'
 
             tqdm.write(create_psql)
-            
             self.DBX.execute(create_psql)
-            # self.DB.commit()
             
             self.selecttoinsert(table)
+            
             if len(serial_names) > 0:
                 self.setval(table, serial_names)
                 
             self.close_mysql()
             self.close_postgresql()
+            
+            tqdm.write('\n')
             
     # -------------------------------------------------------------- #
             
@@ -177,17 +182,13 @@ class mysql2postgresql:
             create sequence by tablename_primarykey_seq
         '''
 
-        psql:str = f"DROP SEQUENCE {table[0:56]}_{name}_seq CASCADE"
-        try:
-            self.DBX.execute(psql)
-        except:
-            pass
-        # self.DB.commit()
-            
-        psql = f"CREATE SEQUENCE {table[0:56]}_{name}_seq"
-        self.DBX.execute(psql)
-        # self.DB.commit()
-    
+        psql:list = (f"DROP SEQUENCE {table[0:56]}_{name}_seq CASCADE", f"CREATE SEQUENCE {table[0:56]}_{name}_seq")
+        
+        for psql in psql:
+            try:
+                self.DBX.execute(psql)
+            except:
+                pass
     
     def setval(self, table:str, serial_name:str):
         '''
@@ -222,16 +223,11 @@ class mysql2postgresql:
             self.limit = count 
         
         while count > 0:
-            msql = f'SELECT * from {table} LIMIT {self.limit} OFFSET {step};'
+            msql:str = f'SELECT * from {table} LIMIT {self.limit} OFFSET {step};'
             tqdm.write(msql)
             self.dbx.execute(msql)
-            rows = self.dbx.fetchall()
             
-            with ThreadPoolExecutor() as executor:
-                try:
-                    a = executor.submit(self.insertinto , rows, table)
-                finally:
-                    a.cancel()
+            self.insertinto(self.dbx.fetchall(), table)
             
             step = step + self.limit
             count = count - self.limit
@@ -243,7 +239,13 @@ class mysql2postgresql:
         '''
         
         psql:str = f"INSERT INTO {table} values %s"
-        tqdm.write(psql)
-        psycopg2.extras.execute_values(self.DBX, psql, rows)
-        # self.DB.commit()            
+        
+        with ThreadPoolExecutor() as executor:
+            future = executor.submit(psycopg2.extras.execute_values, self.DBX, psql, rows)
+            try:
+                if future.done():
+                    tqdm.write(psql)
+            except:
+                future.cancel()
+                   
         

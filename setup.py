@@ -5,7 +5,7 @@ def readme():
 
 setup(name='mysql2postgresql',
     packages=find_packages(),
-    version='0.4.5',
+    version='0.5.1',
     description='python-mysql2postgresql',
     author='DewBloodmetal',
     author_email='dewscan001@gmail.com',
@@ -18,7 +18,6 @@ setup(name='mysql2postgresql',
           'Programming Language :: Python',
           'Programming Language :: Python :: 3',
           'Programming Language :: Python :: 3.9',
-          'Programming Language :: Cython',
           'Topic :: Database'
       ], 
 )
