@@ -3,7 +3,8 @@ import mysql.connector
 import psycopg2
 import psycopg2.extras
 from tqdm import tqdm
-from concurrent.futures import ThreadPoolExecutor, as_completed
+from concurrent.futures import ThreadPoolExecutor
+from functools import cache
 
 class mysql2postgresql:
     def __init__(self):
@@ -57,9 +58,12 @@ class mysql2postgresql:
         tqdm.write('Running in Python version')
         try:
             self.main()
+        except KeyboardInterrupt:
+            print('KeyboardInterrupt')
         except Exception as e:
             tqdm.write(str(e))
         finally:
+            print('close connection')
             self.close_postgresql()
             self.close_mysql()
 
@@ -110,6 +114,7 @@ class mysql2postgresql:
                 
                 name:str=row[0]; typed:str=row[1]; null:str=row[2]; key:str=row[3]; default:str=row[4]; extra:str=row[5]
                 
+                name = f"{name}"
                 # reserve:tuple = ()
                 
                 '''
@@ -175,7 +180,7 @@ class mysql2postgresql:
             tqdm.write('\n')
             
     # -------------------------------------------------------------- #
-            
+    @cache
     def create_sequence(self, table:str, name:str):
         '''
             function create sequnce (seq) in PostgreSQL
@@ -190,6 +195,7 @@ class mysql2postgresql:
             except:
                 pass
     
+    @cache
     def setval(self, table:str, serial_name:str):
         '''
             function setval to sequnce (seq) in PostgreSQL from Last ID
@@ -209,9 +215,10 @@ class mysql2postgresql:
         
         
     #-------------------------------- function select mysql ---------------------------------------#
+    @cache
     def selecttoinsert(self, table:str):
         '''
-            Function Select data from MySQL to function insertinto 
+            Function Select data from MySQL and insert data to PostgreSQL
         '''
         
         step:int = 0 
@@ -227,25 +234,10 @@ class mysql2postgresql:
             tqdm.write(msql)
             self.dbx.execute(msql)
             
-            self.insertinto(self.dbx.fetchall(), table)
+            psql:str = f"INSERT INTO {table} values %s"
+            tqdm.write(psql)
+            with ThreadPoolExecutor() as executor:
+                executor.submit(psycopg2.extras.execute_values, self.DBX, psql, self.dbx.fetchall())
             
             step = step + self.limit
             count = count - self.limit
-            
-            
-    def insertinto(self, rows:list, table:str):
-        '''
-            Function insert data to PostgreSQL from function selecttoinsert 
-        '''
-        
-        psql:str = f"INSERT INTO {table} values %s"
-        
-        with ThreadPoolExecutor() as executor:
-            future = executor.submit(psycopg2.extras.execute_values, self.DBX, psql, rows)
-            try:
-                if future.done():
-                    tqdm.write(psql)
-            except:
-                future.cancel()
-                   
-        
