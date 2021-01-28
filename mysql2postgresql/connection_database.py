@@ -3,7 +3,6 @@ import mysql.connector
 import psycopg2
 import psycopg2.extras
 from tqdm import tqdm
-from concurrent.futures import ThreadPoolExecutor
 from functools import cache
 
 class mysql2postgresql:
