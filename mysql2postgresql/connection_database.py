@@ -82,6 +82,10 @@ class mysql2postgresql:
         
         self.tables = [table for table in self.tables if table not in self.without]
         
+        tqdm.write('Insert Table : '+(', ').join(table for table in self.tables))
+        tqdm.write('Without Table : '+(', ').join(table for table in self.without))
+        tqdm.write('\n')
+        
         for table in tqdm(self.tables):
             
             self.connect_mysql_database()
@@ -112,9 +116,8 @@ class mysql2postgresql:
 
             for row in rows:
                 
-                name:str=row[0]; typed:str=row[1]; null:str=row[2]; key:str=row[3]; default:str=row[4]; extra:str=row[5]
+                name:str=f"{row[0]}"; typed:str=row[1]; null:str=row[2]; key:str=row[3]; default:str=row[4]; extra:str=row[5]
                 
-                name = f"{name}"
                 # reserve:tuple = ()
                 
                 '''
@@ -235,9 +238,9 @@ class mysql2postgresql:
             self.dbx.execute(msql)
             
             psql:str = f"INSERT INTO {table} values %s"
+            psycopg2.extras.execute_values(self.DBX, psql, iter(self.dbx.fetchall()))
             tqdm.write(psql)
-            with ThreadPoolExecutor() as executor:
-                executor.submit(psycopg2.extras.execute_values, self.DBX, psql, self.dbx.fetchall())
+            
             
             step = step + self.limit
             count = count - self.limit
