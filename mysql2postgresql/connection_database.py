@@ -4,7 +4,7 @@ import psycopg2
 import psycopg2.extras
 from tqdm import tqdm
 from functools import cache
-
+from concurrent.futures import ThreadPoolExecutor
 class mysql2postgresql:
     def __init__(self):
         self.db = None
@@ -86,102 +86,104 @@ class mysql2postgresql:
         tqdm.write('\n')
         
         for table in tqdm(self.tables):
-            
-            self.connect_mysql_database()
-            self.connect_postgresql_database()
-            
-            tqdm.write('Table :'+table)
-            
-            primary:list = []
-            serial_names:str = ''
-            primary_key:str = ''
-            
-            drop_psql:str = f'DROP TABLE IF EXISTS {table}'
-            try:
-                self.DBX.execute(drop_psql)
-            except Exception as e:
-                tqdm.write(str(e))
-
-        
-            mysql:str = f'SHOW COLUMNS FROM {table}'
-            self.dbx.execute(mysql)
-            rows:generator = (value for value in self.dbx.fetchall())
-
-            '''
-            create table in PostgreSQL
-            '''
-            
-            psql:str = f'CREATE TABLE IF NOT EXISTS {table} ('
-
-            for row in rows:
-                
-                name:str=f"{row[0]}"; typed:str=row[1]; null:str=row[2]; key:str=row[3]; default:str=row[4]; extra:str=row[5]
-                
-                # reserve:tuple = ()
-                
-                '''
-                    this change data type from MySQL to PostgreSQL
-                '''
-                if 'int' in typed: typed='int'
-                elif 'tinyint' in typed: typed='int4'
-                elif 'bigint' in typed: typed='int8'
-                elif 'blob' in typed: typed='bytea'
-                elif 'datetime' in typed: typed='timestamp without time zone'
-                elif 'date' in typed: typed='date'
-                elif 'text' in typed: typed='text'
-                elif 'varchar' in typed: typed='character varying'
-                elif 'double' in typed: typed='double precision'
-                elif 'enum' in typed: typed='character varying'     
-                    
-                if key == 'PRI':
-                    ''' when column is primary it append to list'''
-                    primary.append(name)
-
-                if extra == "auto_increment":
-                    ''' when column is auto_increment'''
-
-                    serial_names = name
-                    self.create_sequence(table, name)
-                    default = f"DEFAULT nextval('{table[0:56]}_{name}_seq'::regclass)"
-                    psql+= f'{name} {typed} {default},'
-                    
-                else:
-                    ''' when column is not auto_increment'''
-                    if default is not None:
-                        default = default.strip("()")
-                        if typed == 'date' :
-                            default = f"DEFAULT DATE('{default}')"
-                        elif typed == 'timestamp' or default == 'NULL' or default.startswith("'"):
-                            default = f'DEFAULT {default}'
-                        else:
-                            default = f"DEFAULT '{default}'"
-                        psql+= f'{name} {typed} {default},'
-                    else:
-                        psql+= f'{name} {typed},'
-
-            if len(primary) != 0:
-                primary_key = ', '.join(primary)
-
-            if primary_key != '':
-                ''' add primary key from list '''
-                psql+= f'PRIMARY KEY ({primary_key})'
-
-            create_psql:str=psql.strip(',')+')'
-
-            tqdm.write(create_psql)
-            self.DBX.execute(create_psql)
-            
-            self.selecttoinsert(table)
-            
-            if len(serial_names) > 0:
-                self.setval(table, serial_names)
-                
-            self.close_mysql()
-            self.close_postgresql()
-            
+            self.createtable(table)
             tqdm.write('\n')
             
     # -------------------------------------------------------------- #
+    @cache
+    def createtable(self, table):
+        self.connect_mysql_database()
+        self.connect_postgresql_database()
+        
+        tqdm.write('Table :'+table)
+        
+        primary:list = []
+        serial_names:str = ''
+        primary_key:str = ''
+        
+        drop_psql:str = f'DROP TABLE IF EXISTS {table}'
+        try:
+            self.DBX.execute(drop_psql)
+        except Exception as e:
+            tqdm.write(str(e))
+
+    
+        mysql:str = f'SHOW COLUMNS FROM {table}'
+        self.dbx.execute(mysql)
+        rows:generator = (value for value in self.dbx.fetchall())
+
+        '''
+        create table in PostgreSQL
+        '''
+        
+        psql:str = f'CREATE TABLE IF NOT EXISTS {table} ('
+
+        for row in rows:
+            
+            name:str=row[0]; typed:str=row[1]; null:str=row[2]; key:str=row[3]; default:str=row[4]; extra:str=row[5]
+            
+            # reserve:tuple = ()
+            
+            '''
+                this change data type from MySQL to PostgreSQL
+            '''
+            if 'int' in typed: typed='int'
+            elif 'tinyint' in typed: typed='int4'
+            elif 'bigint' in typed: typed='int8'
+            elif 'blob' in typed: typed='bytea'
+            elif 'datetime' in typed: typed='timestamp without time zone'
+            elif 'date' in typed: typed='date'
+            elif 'text' in typed: typed='text'
+            elif 'varchar' in typed: typed='character varying'
+            elif 'double' in typed: typed='double precision'
+            elif 'enum' in typed: typed='character varying'     
+                
+            if key == 'PRI':
+                ''' when column is primary it append to list'''
+                primary.append(name)
+
+            if extra == "auto_increment":
+                ''' when column is auto_increment'''
+
+                serial_names = name
+                self.create_sequence(table, name)
+                default = f"DEFAULT nextval('{table[0:56]}_{name}_seq'::regclass)"
+                psql+= f'{name} {typed} {default},'
+                
+            else:
+                ''' when column is not auto_increment'''
+                if default is not None:
+                    default = default.strip("()")
+                    if typed == 'date' :
+                        default = f"DEFAULT DATE('{default}')"
+                    elif typed == 'timestamp' or default == 'NULL' or default.startswith("'"):
+                        default = f'DEFAULT {default}'
+                    else:
+                        default = f"DEFAULT '{default}'"
+                    psql+= f'"{name}" {typed} {default},'
+                else:
+                    psql+= f'"{name}" {typed},'
+
+        if len(primary) != 0:
+            primary_key = ', '.join(primary)
+
+        if primary_key != '':
+            ''' add primary key from list '''
+            psql+= f'PRIMARY KEY ({primary_key})'
+
+        create_psql:str=psql.strip(',')+')'
+
+        tqdm.write(create_psql)
+        self.DBX.execute(create_psql)
+        
+        self.selecttoinsert(table)
+        
+        if len(serial_names) > 0:
+            self.setval(table, serial_names)
+            
+        self.close_mysql()
+        self.close_postgresql()
+    
     @cache
     def create_sequence(self, table:str, name:str):
         '''
@@ -236,9 +238,10 @@ class mysql2postgresql:
             tqdm.write(msql)
             self.dbx.execute(msql)
             
-            psql:str = f"INSERT INTO {table} values %s"
-            psycopg2.extras.execute_values(self.DBX, psql, iter(self.dbx.fetchall()))
-            tqdm.write(psql)
+            with ThreadPoolExecutor() as executor:
+                psql:str = f"INSERT INTO {table} values %s"
+                executor.submit(psycopg2.extras.execute_values, self.DBX, psql, self.dbx.fetchall())
+                tqdm.write(psql)
             
             
             step = step + self.limit
