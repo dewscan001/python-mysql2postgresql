@@ -23,8 +23,8 @@ class mysql2postgresql:
         self.connect_mysql_kwargs = kwargs
         
     def connect_mysql_database(self):
-        self.db = mysql.connector.connect(**self.connect_mysql_kwargs)
-        self.dbx = self.db.cursor()
+        self.db = mysql.connector.connect(**self.connect_mysql_kwargs, use_pure = False)
+        self.dbx = self.db.cursor(buffered=True)
         self.database = self.connect_mysql_kwargs['db']
         
     def close_mysql(self):
@@ -86,15 +86,20 @@ class mysql2postgresql:
         tqdm.write('\n')
         
         for table in tqdm(self.tables):
-            self.createtable(table)
-            tqdm.write('\n')
+            try:
+                self.connect_mysql_database()
+                self.connect_postgresql_database()
+                self.createtable(table)
+            except Exception as e:
+                tqdm.write(str(e))
+            finally:
+                tqdm.write('\n')
+                self.close_mysql()
+                self.close_postgresql()
             
     # -------------------------------------------------------------- #
     @cache
     def createtable(self, table):
-        self.connect_mysql_database()
-        self.connect_postgresql_database()
-        
         tqdm.write('Table :'+table)
         
         primary:list = []
@@ -180,9 +185,6 @@ class mysql2postgresql:
         
         if len(serial_names) > 0:
             self.setval(table, serial_names)
-            
-        self.close_mysql()
-        self.close_postgresql()
     
     @cache
     def create_sequence(self, table:str, name:str):
@@ -198,6 +200,38 @@ class mysql2postgresql:
                 self.DBX.execute(psql)
             except:
                 pass
+    
+    #-------------------------------- function select mysql and insert postgresql ---------------------------------------#
+    @cache
+    def selecttoinsert(self, table:str):
+        '''
+            Function Select data from MySQL and insert data to PostgreSQL
+        '''
+        
+        msql:str = f'SELECT COUNT(*) FROM {table}'
+        self.dbx.execute(msql)
+        count:int = self.dbx.fetchone()[0]
+        
+        msql:str = f'SELECT * from {table};'
+        tqdm.write(msql)
+        self.dbx.execute(msql)
+        
+        if self.limit > count:
+            self.insertpostgresql(iter(self.dbx.fetchall()), table)
+        
+        else:
+            while count > 0:
+                self.insertpostgresql(iter(self.dbx.fetchmany(self.limit)), table)
+                count = count - self.limit
+     
+            
+    @cache 
+    def insertpostgresql(self, rows, table):
+        psql:str = f"INSERT INTO {table} values %s"
+        tqdm.write(psql)
+        with ThreadPoolExecutor() as executor:
+            executor.submit(psycopg2.extras.execute_values, self.DBX, psql, rows)
+    
     
     @cache
     def setval(self, table:str, serial_name:str):
@@ -216,33 +250,3 @@ class mysql2postgresql:
             # self.DB.commit()
         except:
             pass
-        
-        
-    #-------------------------------- function select mysql ---------------------------------------#
-    @cache
-    def selecttoinsert(self, table:str):
-        '''
-            Function Select data from MySQL and insert data to PostgreSQL
-        '''
-        
-        step:int = 0 
-        msql:str = f'SELECT COUNT(*) FROM {table}'
-        self.dbx.execute(msql)
-        count:int = self.dbx.fetchone()[0]
-        
-        if self.limit == 0:
-            self.limit = count 
-        
-        while count > 0:
-            msql:str = f'SELECT * from {table} LIMIT {self.limit} OFFSET {step};'
-            tqdm.write(msql)
-            self.dbx.execute(msql)
-            
-            with ThreadPoolExecutor() as executor:
-                psql:str = f"INSERT INTO {table} values %s"
-                executor.submit(psycopg2.extras.execute_values, self.DBX, psql, self.dbx.fetchall())
-                tqdm.write(psql)
-            
-            
-            step = step + self.limit
-            count = count - self.limit
