@@ -3,7 +3,6 @@ import mysql.connector
 import psycopg2
 import psycopg2.extras
 from tqdm import tqdm
-from functools import cache
 from concurrent.futures import ThreadPoolExecutor
 
 
@@ -104,7 +103,7 @@ class mysql2postgresql:
                 self.close_postgresql()
 
     # -------------------------------------------------------------- #
-    @cache
+
     def createtable(self, table):
         tqdm.write('Table :'+table)
 
@@ -206,7 +205,6 @@ class mysql2postgresql:
         if len(serial_names) > 0:
             self.setval(table, serial_names)
 
-    @cache
     def create_sequence(self, table: str, name: str):
         '''
             function create sequnce (seq) in PostgreSQL
@@ -223,7 +221,7 @@ class mysql2postgresql:
                 pass
 
     #-------------------------------- function select mysql and insert postgresql ---------------------------------------#
-    @cache
+
     def selecttoinsert(self, table: str):
         '''
             Function Select data from MySQL and insert data to PostgreSQL
@@ -246,7 +244,6 @@ class mysql2postgresql:
                     iter(self.dbx.fetchmany(self.limit)), table)
                 count = count - self.limit
 
-    @cache
     def insertpostgresql(self, rows, table):
         psql: str = f"INSERT INTO {table} values %s"
         tqdm.write(psql)
@@ -254,11 +251,10 @@ class mysql2postgresql:
             executor.submit(psycopg2.extras.execute_values,
                             self.DBX, psql, rows)
 
-    @cache
     def setval(self, table: str, serial_name: str):
         '''
             function setval to sequnce (seq) in PostgreSQL from Last ID
-            Setdefault value for sequence when insert new data
+            Set default value for sequence when insert new data
         '''
 
         psql: str = f"SELECT {serial_name} FROM {table} ORDER BY {serial_name} DESC LIMIT 1"
