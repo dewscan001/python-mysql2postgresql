@@ -90,21 +90,23 @@ class mysql2postgresql:
                    (', ').join(table for table in self.without))
         tqdm.write('\n')
 
-        for table in tqdm(self.tables):
-            try:
-                self.connect_mysql_database()
-                self.connect_postgresql_database()
-                self.createtable(table)
-            except Exception as e:
-                tqdm.write(str(e))
-            finally:
-                tqdm.write('\n')
-                self.close_mysql()
-                self.close_postgresql()
+        tqdm.write(", ".join(func for func in map(self.createtable, tqdm(self.tables))))
+        # for table in tqdm(self.tables):
+        #     try:
+                
+        #         self.createtable(table)
+        #     except Exception as e:
+        #         tqdm.write(str(e))
+        #     finally:
+        #         tqdm.write('\n')
+                
 
     # -------------------------------------------------------------- #
 
     def createtable(self, table):
+        self.connect_mysql_database()
+        self.connect_postgresql_database()
+        
         tqdm.write('Table :'+table)
 
         primary: list = []
@@ -204,6 +206,11 @@ class mysql2postgresql:
 
         if len(serial_names) > 0:
             self.setval(table, serial_names)
+            
+        self.close_mysql()
+        self.close_postgresql()
+        
+        return table
 
     def create_sequence(self, table: str, name: str):
         '''
