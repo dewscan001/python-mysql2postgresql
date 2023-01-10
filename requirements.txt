@@ -1,6 +1,7 @@
-mysql-connector
+mysql-connector-python
 # git+https://github.com/psycopg/psycopg3.git#subdirectory=psycopg3
 psycopg2
 psycopg2-binary
 tqdm
 tracemalloc
+fire
