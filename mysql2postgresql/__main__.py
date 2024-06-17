@@ -1,21 +1,24 @@
 from fire import Fire
 from mysql2postgresql import mysql2postgresql
 from tqdm import tqdm
+import os
+
+DB_NAME = os.getenv("CONVERT_DATABASE", "database_name")
 
 
 class Mysql2PostgresqlMain:
     def convert(
         self,
-        mysql_host="localhost",
+        mysql_host=os.getenv("MYSQL_HOST", "localhost"),
         mysql_port=3306,
-        mysql_user="root",
-        mysql_password="",
-        mysql_database="db_name",
-        postgresql_host="localhost",
+        mysql_user=os.getenv("MYSQL_USER", "root"),
+        mysql_password=os.getenv("MYSQL_PWD", ""),
+        mysql_database=DB_NAME,
+        postgresql_host=os.getenv("PGHOST", "localhost"),
         postgresql_port=5432,
-        postgresql_user="postgres",
-        postgresql_password="postgres",
-        postgresql_database="database_name",
+        postgresql_user=os.getenv("PGUSER", "postgres"),
+        postgresql_password=os.getenv("PGPASSWORD", "postgres"),
+        postgresql_database=DB_NAME,
     ):
         tqdm.write("MySQL Server")
         tqdm.write(f"    host: {mysql_host}")

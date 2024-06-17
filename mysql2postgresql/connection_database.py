@@ -17,7 +17,7 @@ class mysql2postgresql:
         "database",
         "limit",
         "connect_mysql_kwargs",
-        "connectpostgresql_kwargs",
+        "connect_postgresql_kwargs",
     ]
 
     def __init__(self):
@@ -30,7 +30,7 @@ class mysql2postgresql:
         self.database: str = None
         self.limit: int = 10000
         self.connect_mysql_kwargs: dict = {}
-        self.connectpostgresql_kwargs: dict = {}
+        self.connect_postgresql_kwargs: dict = {}
 
     def connect_mysql(self, **kwargs):
         tqdm.write(f'Connecting MySQL host: {kwargs["host"]}')
@@ -51,10 +51,10 @@ class mysql2postgresql:
 
     def connect_postgresql(self, **kwargs):
         tqdm.write(f'Connecting PostgreSQL host: {kwargs["host"]}')
-        self.connectpostgresql_kwargs = kwargs
+        self.connect_postgresql_kwargs = kwargs
 
     def connect_postgresql_database(self):
-        self.DB = psycopg2.connect(**self.connectpostgresql_kwargs)
+        self.DB = psycopg2.connect(**self.connect_postgresql_kwargs)
         self.DB.autocommit = True
         self.DBX = self.DB.cursor()
         self.DBX.execute("set client_encoding = 'utf8'")

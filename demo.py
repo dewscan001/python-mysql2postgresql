@@ -4,17 +4,17 @@ from math import floor
 import tracemalloc
 import os
 
-DB_NAME = 'database_name'
+DB_NAME = os.getenv("CONVERT_DATABASE", "database_name")
 
 time1 = time()
 tracemalloc.start()
 
 a = mysql2postgresql()
 a.connect_mysql(
-    host="localhost",
+    host=os.getenv("MYSQL_HOST", "localhost"),
     port=3306,
-    user=os.getenv("DB_USER", "root"),
-    passwd=os.getenv("DB_PASS", ""),
+    user=os.getenv("MYSQL_USER", "root"),
+    passwd=os.getenv("MYSQL_PWD", ""),
     db=DB_NAME,
     charset="utf8"
 )

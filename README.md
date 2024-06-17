@@ -68,3 +68,11 @@ python -m mysql2postgresql convert\
     --postgresql_database=database_name
 ```
 
+Configuration from standard environment variables is supported reading
+$MYSQL_HOST, $MYSQL_USER, $MYSQL_PWD, $PGHOST, $PGUSER, $PGPASSWORD.
+
+With above present you only need to add name of the database to convert.
+```
+export CONVERT_DATABASE=mydatabase
+python -m mysql2postgresql convert
+```
