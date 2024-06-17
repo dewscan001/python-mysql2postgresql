@@ -1,8 +1,8 @@
 # python-mysql2postgresql
 
-## Installation - Pure Python
+## Installation - pure Python
 ```
-    pip install python-mysql2postgresql
+pip install python-mysql2postgresql
 ```
 
 ## Usage via Python file
@@ -12,7 +12,7 @@ from mysql2postgresql import mysql2postgresql
 
 a = mysql2postgresql()
 
-# connect mysql server
+# connect MySQL server
 a.connect_mysql(
     host='localhost',
     port='3306',
@@ -21,7 +21,7 @@ a.connect_mysql(
     db='database_name'
 )
 
-# connect postgresql server
+# connect PostgreSQL server
 a.connect_postgresql(
     host='localhost',             
     port=5432,
@@ -30,10 +30,10 @@ a.connect_postgresql(
     database='database_name'
 )  
 
-# manual table to transfer data  -> default all table in database
+# shortlist of tables to copy data from -> default all tables in a database
 a.tables = ['table1', 'table2', ...]
 
-# manual without table to transfer data  -> default empty
+# shortlist of tables to exclude  -> default empty
 a.without = ['table3', 'table4', ...]
 
 # manual limit to query data -> default 10000 
@@ -48,12 +48,12 @@ a.run()
 
 ## Usage via command line
 
-You can create demo.py file from example using:
+You can copy example above or create a demo.py file from example using:
 ```
 python -m mysql2postgresql export_example
 ```
 
-You can convert all tables in a MySQL database to PostgreSQL using:
+You can convert all tables in a MySQL database to PostgreSQL using a command:
 ```
 python -m mysql2postgresql convert\
     --mysql_host=localhost\

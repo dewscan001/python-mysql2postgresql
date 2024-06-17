@@ -77,10 +77,10 @@ a.connect_postgresql(
 )  
 
 
-# manual table to transfer data  -> default all table in database
+# shortlist of tables to copy data from -> default all tables in a database
 a.tables = ['table1', 'table2', ...]
 
-# manual without table to transfer data  -> default empty
+# shortlist of tables to exclude  -> default empty
 a.without = ['table3', 'table4', ...]
 
 # manual limit to query data -> default 10000 
