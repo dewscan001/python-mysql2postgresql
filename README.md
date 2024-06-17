@@ -76,3 +76,9 @@ With above present you only need to add name of the database to convert.
 export CONVERT_DATABASE=mydatabase
 python -m mysql2postgresql convert
 ```
+
+You can **copy data only (without a schema)** if you already have corresponding Postgres db schema from migrations etc.
+Turning off schema creation also turns off dropping postgres tables before they get recreated.
+```
+export CONVERT_SCHEMA=0
+```

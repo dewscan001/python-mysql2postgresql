@@ -2,6 +2,7 @@ import mysql.connector
 import psycopg2
 import psycopg2.extras
 import sys
+import os
 from tqdm import tqdm
 from concurrent.futures import ThreadPoolExecutor
 
@@ -106,6 +107,7 @@ class mysql2postgresql:
     def create_table(self, table):
         self.connect_mysql_database()
         self.connect_postgresql_database()
+        convert_schema = bool(int(os.getenv("CONVERT_SCHEMA", 1)))
 
         tqdm.write("\n" + table)
         tqdm.write('-' * len(table))
@@ -114,9 +116,11 @@ class mysql2postgresql:
         serial_names: str = ""
         primary_key: str = ""
 
-        drop_psql: str = f"DROP TABLE IF EXISTS {table} CASCADE"
+        drop_psql: str = f"DROP TABLE IF EXISTS {table} CASCADE;"
         try:
-            self.DBX.execute(drop_psql)
+            if convert_schema:  # don't drop tables if we only copy data
+                tqdm.write(drop_psql)
+                self.DBX.execute(drop_psql)
         except Exception as e:
             tqdm.write(str(e))
 
@@ -200,12 +204,14 @@ class mysql2postgresql:
             """add primary key from list"""
             psql += f"\n    PRIMARY KEY ({primary_key})"
 
-        # TODO: other keys and constrains
         create_psql: str = psql.strip(",") + ")"
 
-        tqdm.write(create_psql)
-        self.DBX.execute(create_psql)
-
+        # Schema with all keys, indexes and constrains can be in place already.
+        # Or with default CONVERT_SCHEMA=1 we create simple schema here.
+        if convert_schema:
+            tqdm.write(create_psql)
+            self.DBX.execute(create_psql)
+        # Copy data now.
         self.select_to_insert(table)
 
         if len(serial_names) > 0:
@@ -238,12 +244,12 @@ class mysql2postgresql:
         Function to select data from MySQL and insert into PostgreSQL
         """
 
-        msql: str = f"SELECT COUNT(*) FROM {table}"
+        msql: str = f"SELECT COUNT(*) FROM {table};"
         self.dbx.execute(msql)
         count: int = self.dbx.fetchone()[0]
 
         msql: str = f"SELECT * from {table};"
-        tqdm.write(msql)
+        tqdm.write(msql + f'  # {count} records')
         self.dbx.execute(msql)
 
         if self.limit > count:
