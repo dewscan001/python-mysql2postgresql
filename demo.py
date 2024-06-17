@@ -4,8 +4,6 @@ from math import floor
 import tracemalloc
 import os
 
-DB_NAME = os.getenv("CONVERT_DATABASE", "database_name")
-
 time1 = time()
 tracemalloc.start()
 
@@ -15,7 +13,7 @@ a.connect_mysql(
     port=3306,
     user=os.getenv("MYSQL_USER", "root"),
     passwd=os.getenv("MYSQL_PWD", ""),
-    db=DB_NAME,
+    db=os.getenv("CONVERT_DATABASE", "db_name"),
     charset="utf8"
 )
 
@@ -24,7 +22,7 @@ a.connect_postgresql(
     port=5432,
     user=os.getenv("PGUSER", "postgres"),
     password=os.getenv("PGPASSWORD", "postgres"),
-    database=DB_NAME,
+    database=os.getenv("CONVERT_DATABASE", "database_name"),
 )
 
 a.tables = []  # Table list name
